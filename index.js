@@ -26,11 +26,23 @@ export const options = {
     ],
 
     // The rate of failed actions should be less than 10%
+    failed_piggybank_list_fetches: ["rate<0.1"],
+    failed_piggybank_storing: ["rate<0.1"],
+    failed_piggybank_deletion: ["rate<0.1"],
     failed_bill_list_fetches: ["rate<0.1"],
     failed_bill_storing: ["rate<0.1"],
     failed_bill_deletion: ["rate<0.1"],
   },
   scenarios: {
+    piggybanks_scenario: {
+      executor: "ramping-vus",
+      exec: "piggybanks", // declare which function to execute
+      stages: [
+        { duration: "1m", target: 100 }, // traffic ramp-up from 1 to 100 users over 1 minute.
+        { duration: "45s", target: 100 }, // stay at 100 users for 45 seconds
+        { duration: "30s", target: 0 }, // ramp-down to 0 users
+      ],
+    },
     bills_scenario: {
       executor: "ramping-vus",
       exec: "bills", // declare which function to execute
@@ -42,6 +54,55 @@ export const options = {
     },
   },
 };
+
+let piggybankIndex = 0;
+
+const generatePiggybank = () => {
+  piggybankIndex++;
+  return {
+    name: `Test piggybank ${piggybankIndex}`,
+    account_id: "1",
+    target_amount: "123.45",
+    current_amount: "300",
+    start_date: "2023-08-15T12:46:47+01:00",
+    target_date: "2024-01-15T12:46:47+01:00",
+    order: 5,
+    notes: "Some notes",
+    object_group_id: "5",
+    object_group_title: "Example Group"
+  };
+};
+
+const piggybankListFailRate = new Rate("failed_piggybank_list_fetches");
+const storePiggybankFailRate = new Rate("failed_piggybank_storing");
+const deletePiggybankFailRate = new Rate("failed_piggybank_deletion");
+
+export function piggybanks() {
+  // Get piggybank list
+  const resGetPiggybankList = http.get(`${baseUrl}/v1/piggy-banks`, {
+    headers,
+  });
+  piggybankListFailRate.add(resGetPiggybankList.status !== 200);
+
+  // Store new piggybank
+  const newPiggybank = generatePiggybank();
+  const resStorePiggybank = http.post(
+    `${baseUrl}/v1/piggy-banks`,
+    JSON.stringify(newPiggybank),
+    {
+      headers,
+    }
+  );
+  storePiggybankFailRate.add(resStorePiggybank.status !== 200);
+  storePiggybankFailRate.add(resStorePiggybank.headers["Content-Type"].includes("application/json"));
+
+  // Delete piggybank
+  const piggybankId = resStorePiggybank.json().data.id;
+  const resDeletePiggybank = http.del(`${baseUrl}/v1/piggybanks/${piggybankId}`, null, {
+    headers,
+  });
+  deletePiggybankFailRate.add(resDeletePiggybank.status !== 204);
+}
 
 let billIndex = 0;
 
@@ -85,7 +146,11 @@ export function bills() {
   storeBillFailRate.add(resStoreBill.status !== 200);
 
   // Delete bill
-  const billId = resStoreBill.json().data.id;
+  const responseData = resStoreBill.json();
+    if (responseData.data && responseData.data.id) {
+      const billId = responseData.data.id;
+      // Rest of your code
+    } 
   const resDeleteBill = http.del(`${baseUrl}/v1/bills/${billId}`, null, {
     headers,
   });
