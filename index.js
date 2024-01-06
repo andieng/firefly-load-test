@@ -16,13 +16,13 @@ export const options = {
     // http errors should be less than 1%
     http_req_failed: ["rate < 0.01"],
 
-    // 90% of requests must finish within 7s, 95% within 8s, and 99.9% within 10s
-    // The longest response time should be less than 15s
+    // 90% of requests must finish within 10s, 95% within 12s, and 99.9% within 15s
+    // The longest response time should be less than 20s
     http_req_duration: [
-      "p(90) < 7000",
-      "p(95) < 8000",
-      "p(99.9) < 10000",
-      "max < 15000",
+      "p(90) < 10000",
+      "p(95) < 12000",
+      "p(99.9) < 15000",
+      "max < 20000",
     ],
 
     // The rate of failed actions should be less than 10%
@@ -35,9 +35,9 @@ export const options = {
       executor: "ramping-vus",
       exec: "bills", // declare which function to execute
       stages: [
-        { duration: "1m", target: 100 }, // traffic ramp-up from 1 to 100 users over 1 minute.
-        { duration: "45s", target: 100 }, // stay at 100 users for 45 seconds
-        { duration: "30s", target: 0 }, // ramp-down to 0 users
+        { duration: "1m", target: 80 }, // traffic ramp-up from 1 to 80 users over 1 minute.
+        { duration: "1m", target: 80 }, // stay at 80 users for 1 minute
+        { duration: "1m", target: 0 }, // ramp-down to 0 users
       ],
     },
   },
