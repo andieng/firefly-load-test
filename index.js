@@ -29,6 +29,12 @@ export const options = {
     failed_bill_list_fetches: ["rate<0.1"],
     failed_bill_storing: ["rate<0.1"],
     failed_bill_deletion: ["rate<0.1"],
+
+    
+    //BUDGET: The rate of failed actions should be less than 10%
+    failed_budget_list_fetches: ["rate<0.1"],
+    failed_budget_storing: ["rate<0.1"],
+    failed_budget_deletion: ["rate<0.1"],
   },
   scenarios: {
     bills_scenario: {
@@ -38,6 +44,15 @@ export const options = {
         { duration: "1m", target: 100 }, // traffic ramp-up from 1 to 100 users over 1 minute.
         { duration: "45s", target: 100 }, // stay at 100 users for 45 seconds
         { duration: "30s", target: 0 }, // ramp-down to 0 users
+      ],
+    },
+    budgets_scenario: {
+      executor: "ramping-vus",
+      exec: "budgets", // declare which function to execute
+      stages: [
+        { duration: "1m", target: 50 },
+        { duration: "30s", target: 100 }, 
+        { duration: "30s", target: 0 },
       ],
     },
   },
@@ -90,4 +105,45 @@ export function bills() {
     headers,
   });
   deleteBillFailRate.add(resDeleteBill.status !== 204);
+}
+
+//BUDGET
+let budgetIndex = 0;
+
+const generateBudget = () => {
+  budgetIndex++;
+  return {
+      name: `Test budget ${budgetIndex}`,
+      active: false
+    }
+};
+
+const budgetListFailRate = new Rate("failed_budget_list_fetches");
+const storebudgetFailRate = new Rate("failed_budget_storing");
+const deletebudgetFailRate = new Rate("failed_budget_deletion");
+
+export function budgets() {
+  //Get budget list
+  const resGetbudgetList = http.get(`${baseUrl}/v1/budgets`, {
+    headers,
+  });
+  budgetListFailRate.add(resGetbudgetList.status !== 200);
+
+  // Store new budget
+  const newBudget = generateBudget();
+  const resStorebudget = http.post(
+    `${baseUrl}/v1/budgets`,
+    JSON.stringify(newBudget),
+    {
+      headers,
+    }
+  );
+  storebudgetFailRate.add(resStorebudget.status !== 200);
+
+  // Delete budget
+  const budgetId = resStorebudget.data.id;
+  const resDeleteBudget = http.del(`${baseUrl}/v1/budgets/${budgetId}`, null, {
+    headers,
+  });
+  deletebudgetFailRate.add(resDeleteBudget.status !== 204);
 }
