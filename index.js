@@ -44,6 +44,7 @@ export const options = {
 };
 
 let billIndex = 0;
+let tagIndex = 0;
 
 const generateBill = () => {
   billIndex++;
@@ -90,4 +91,42 @@ export function bills() {
     headers,
   });
   deleteBillFailRate.add(resDeleteBill.status !== 204);
+}
+
+const generateTag = () => {
+  tagIndex++;
+  return {
+    tag: `Test tag ${tagIndex}`,
+    date: "2018-09-17",
+    description: "Tag for expensive stuff",
+    latitude: 51.983333,
+    longitude: 5.916667,
+    zoom_level: 6,
+  };
+};
+
+const tagListFailRate = new Rate("failed_tag_list_fetches");
+const storeTagFailRate = new Rate("failed_tag_storing");
+const deleteTagFailRate = new Rate("failed_tag_deletion");
+
+export function tags() {
+  // Get tag list
+  const resGetTagList = http.get(`${baseUrl}/v1/tags`, {
+    headers,
+  });
+  tagListFailRate.add(resGetTagList.status !== 200);
+
+  // Store a new tag
+  const newTag = generateTag();
+  const resStoreTag = http.post(`${baseUrl}/v1/tags`, JSON.stringify(newTag), {
+    headers,
+  });
+  storeTagFailRate.add(resStoreTag.status !== 200);
+
+  // Delete a tag
+  const tagId = resStoreTag.json().data.id;
+  const resDeleteTag = http.del(`${baseUrl}/v1/tags/${tagId}`, null, {
+    headers,
+  });
+  deleteTagFailRate.add(resDeleteTag.status !== 204);
 }
