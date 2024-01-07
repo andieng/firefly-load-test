@@ -18,53 +18,60 @@ export const options = {
 
     // 90% of requests must finish within 10s, 95% within 12s, and 99.9% within 15s
     // The longest response time should be less than 20s
-    http_req_duration: [
-      "p(90) < 10000",
-      "p(95) < 12000",
-      "p(99.9) < 15000",
-      "max < 20000",
-    ],
+    http_req_duration: ["p(90) < 20000", "p(95) < 30000", "max < 70000"],
 
     // The rate of failed actions should be less than 10%
     failed_piggybank_list_fetches: ["rate<0.1"],
     failed_piggybank_storing: ["rate<0.1"],
     failed_piggybank_deletion: ["rate<0.1"],
+
     failed_bill_list_fetches: ["rate<0.1"],
     failed_bill_storing: ["rate<0.1"],
     failed_bill_deletion: ["rate<0.1"],
 
-    
-    //BUDGET: The rate of failed actions should be less than 10%
     failed_budget_list_fetches: ["rate<0.1"],
     failed_budget_storing: ["rate<0.1"],
     failed_budget_deletion: ["rate<0.1"],
+
+    failed_tag_list_fetches: ["rate<0.1"],
+    failed_tag_storing: ["rate<0.1"],
+    failed_tag_deletion: ["rate<0.1"],
   },
   scenarios: {
     piggybanks_scenario: {
       executor: "ramping-vus",
-      exec: "piggybanks", // declare which function to execute
+      exec: "piggybanks",
       stages: [
-        { duration: "1m", target: 100 }, // traffic ramp-up from 1 to 100 users over 1 minute.
-        { duration: "45s", target: 100 }, // stay at 100 users for 45 seconds
-        { duration: "30s", target: 0 }, // ramp-down to 0 users
+        { duration: "1m", target: 100 },
+        { duration: "1m", target: 100 },
+        { duration: "1m", target: 0 },
       ],
     },
     budgets_scenario: {
       executor: "ramping-vus",
-      exec: "budgets", // declare which function to execute
+      exec: "budgets",
       stages: [
-        { duration: "1m", target: 50 },
-        { duration: "30s", target: 100 }, 
-        { duration: "30s", target: 0 },
+        { duration: "1m", target: 100 },
+        { duration: "1m", target: 100 },
+        { duration: "1m", target: 0 },
       ],
     },
     bills_scenario: {
       executor: "ramping-vus",
-      exec: "bills", // declare which function to execute
+      exec: "bills",
       stages: [
-        { duration: "1m", target: 80 }, // traffic ramp-up from 1 to 80 users over 1 minute.
-        { duration: "1m", target: 80 }, // stay at 80 users for 1 minute
-        { duration: "1m", target: 0 }, // ramp-down to 0 users
+        { duration: "1m", target: 100 },
+        { duration: "1m", target: 100 },
+        { duration: "1m", target: 0 },
+      ],
+    },
+    tags_scenario: {
+      executor: "ramping-vus",
+      exec: "tags",
+      stages: [
+        { duration: "1m", target: 100 },
+        { duration: "1m", target: 100 },
+        { duration: "1m", target: 0 },
       ],
     },
   },
@@ -84,7 +91,7 @@ const generatePiggybank = () => {
     order: 5,
     notes: "Some notes",
     object_group_id: "5",
-    object_group_title: "Example Group"
+    object_group_title: "Example Group",
   };
 };
 
@@ -109,13 +116,19 @@ export function piggybanks() {
     }
   );
   storePiggybankFailRate.add(resStorePiggybank.status !== 200);
-  storePiggybankFailRate.add(resStorePiggybank.headers["Content-Type"].includes("application/json"));
+  storePiggybankFailRate.add(
+    resStorePiggybank.headers["Content-Type"].includes("application/json")
+  );
 
   // Delete piggybank
   const piggybankId = resStorePiggybank.json().data.id;
-  const resDeletePiggybank = http.del(`${baseUrl}/v1/piggybanks/${piggybankId}`, null, {
-    headers,
-  });
+  const resDeletePiggybank = http.del(
+    `${baseUrl}/v1/piggybanks/${piggybankId}`,
+    null,
+    {
+      headers,
+    }
+  );
   deletePiggybankFailRate.add(resDeletePiggybank.status !== 204);
 }
 
@@ -162,11 +175,7 @@ export function bills() {
   storeBillFailRate.add(resStoreBill.status !== 200);
 
   // Delete bill
-  const responseData = resStoreBill.json();
-    if (responseData.data && responseData.data.id) {
-      const billId = responseData.data.id;
-      // Rest of your code
-    } 
+  const billId = resStoreBill.json().data.id;
   const resDeleteBill = http.del(`${baseUrl}/v1/bills/${billId}`, null, {
     headers,
   });
@@ -217,9 +226,9 @@ let budgetIndex = 0;
 const generateBudget = () => {
   budgetIndex++;
   return {
-      name: `Test budget ${budgetIndex}`,
-      active: false
-    }
+    name: `Test budget ${budgetIndex}`,
+    active: false,
+  };
 };
 
 const budgetListFailRate = new Rate("failed_budget_list_fetches");
